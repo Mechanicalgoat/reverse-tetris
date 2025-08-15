@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reverse Tetris - AIを積ませろ！</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Reverse Tetris</h1>
+        <p class="subtitle">AIにミノを送って、できるだけ早く積ませよう！</p>
+        
+        <div class="game-container">
+            <div class="left-panel">
+                <div class="score-board">
+                    <h2>スコア</h2>
+                    <div class="score" id="score">0</div>
+                    <div class="stats">
+                        <div>送ったミノ: <span id="pieces-sent">0</span></div>
+                        <div>消したライン: <span id="lines-cleared">0</span></div>
+                        <div>高さ: <span id="max-height">0</span></div>
+                    </div>
+                </div>
+                
+                <div class="difficulty">
+                    <h3>難易度</h3>
+                    <select id="difficulty">
+                        <option value="easy">かんたん（弱いAI）</option>
+                        <option value="normal" selected>ふつう（普通のAI）</option>
+                        <option value="hard">むずかしい（強いAI）</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="center-panel">
+                <canvas id="game-board" width="300" height="600"></canvas>
+                <div class="game-status" id="game-status"></div>
+            </div>
+            
+            <div class="right-panel">
+                <h2>次のミノを選択</h2>
+                <div class="piece-selector" id="piece-selector">
+                    <!-- ミノ選択ボタンがここに生成される -->
+                </div>
+                <div class="next-queue">
+                    <h3>次に送るミノ</h3>
+                    <canvas id="next-piece" width="120" height="80"></canvas>
+                </div>
+                <div class="controls">
+                    <button id="start-btn" class="btn btn-primary">ゲーム開始</button>
+                    <button id="pause-btn" class="btn btn-secondary" disabled>一時停止</button>
+                    <button id="reset-btn" class="btn btn-danger">リセット</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>遊び方</h3>
+            <ul>
+                <li>右側のパネルからミノを選んでAIに送ります</li>
+                <li>AIは最適な位置にミノを配置しようとします</li>
+                <li>難しいミノを送って、AIを困らせましょう！</li>
+                <li>画面の上まで積み上がったらあなたの勝ち！</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script src="tetris-ai.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
