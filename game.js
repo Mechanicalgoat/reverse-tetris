@@ -427,22 +427,42 @@ class ReverseTetris {
         this.draw();
         
         // ライン消去を実行
-        this.clearLinesWithAnimation();
+        setTimeout(() => {
+            this.clearLinesWithAnimation();
+        }, 50);
     }
     
     clearLinesWithAnimation() {
-        const completedLines = this.findCompletedLines();
+        // 全ての完成ラインを検出
+        const completedLines = [];
+        for (let y = 0; y < this.gridHeight; y++) {
+            let isComplete = true;
+            for (let x = 0; x < this.gridWidth; x++) {
+                if (this.board.grid[y][x] === 0) {
+                    isComplete = false;
+                    break;
+                }
+            }
+            if (isComplete) {
+                completedLines.push(y);
+            }
+        }
         
         if (completedLines.length > 0) {
-            console.log('Complete lines found:', completedLines);
+            console.log('Complete lines found at rows:', completedLines);
             // ハイライト表示
             this.highlightCompletedLines(completedLines);
             
             // 少し遅延してから削除
             setTimeout(() => {
                 this.removeCompletedLines(completedLines);
-                this.checkGameStateAfterClear();
-            }, 200);
+                this.updateDisplay();
+                this.draw();
+                // 次の状態確認
+                setTimeout(() => {
+                    this.checkGameStateAfterClear();
+                }, 50);
+            }, 300);
         } else {
             // ライン消去がない場合はすぐに次の処理へ
             this.checkGameStateAfterClear();
@@ -450,8 +470,20 @@ class ReverseTetris {
     }
     
     findCompletedLines() {
-        const completedLines = BoardUtils.findCompletedLines(this.board.grid);
-        console.log('Found completed lines:', completedLines);
+        const completedLines = [];
+        for (let y = 0; y < this.gridHeight; y++) {
+            let isComplete = true;
+            for (let x = 0; x < this.gridWidth; x++) {
+                if (this.board.grid[y][x] === 0) {
+                    isComplete = false;
+                    break;
+                }
+            }
+            if (isComplete) {
+                completedLines.push(y);
+            }
+        }
+        console.log('Found completed lines at rows:', completedLines);
         return completedLines;
     }
     
@@ -465,15 +497,23 @@ class ReverseTetris {
     removeCompletedLines(lines) {
         if (lines.length === 0) return;
         
-        console.log('Removing lines:', lines);
+        console.log('Removing lines at rows:', lines);
         
-        const removedCount = BoardUtils.removeLines(this.board.grid, lines);
+        // 下から上に向かって削除（インデックスのズレを防ぐため）
+        lines.sort((a, b) => b - a);
         
-        this.linesCleared += removedCount;
+        for (const lineIndex of lines) {
+            // 指定行を削除
+            this.board.grid.splice(lineIndex, 1);
+            // 上部に新しい空行を追加
+            this.board.grid.unshift(Array(this.gridWidth).fill(0));
+        }
+        
+        this.linesCleared += lines.length;
         // ラインクリアによるボーナス
-        this.score += removedCount * 10;
+        this.score += lines.length * 10;
         
-        console.log('Lines cleared. Total lines:', this.linesCleared);
+        console.log('Lines removed successfully. Total lines cleared:', this.linesCleared);
         
         // ハイライトをクリア
         this.highlightedLines = null;
@@ -481,14 +521,21 @@ class ReverseTetris {
     
     checkGameStateAfterClear() {
         // ゲームクリア判定（リバーステトリスの勝利条件）
-        if (this.checkGameClear()) {
-            this.handleGameClear();
-            return;
+        // 上部3行のいずれかにブロックがあるかチェック
+        let hasBlocksInTopRows = false;
+        for (let y = 0; y < 3; y++) {
+            for (let x = 0; x < this.gridWidth; x++) {
+                if (this.board.grid[y][x] !== 0) {
+                    hasBlocksInTopRows = true;
+                    break;
+                }
+            }
+            if (hasBlocksInTopRows) break;
         }
         
-        // ゲームオーバー判定（通常は発生しないが安全のため）
-        if (this.checkGameOver()) {
-            this.handleGameOver();
+        if (hasBlocksInTopRows) {
+            console.log('Game Clear! Blocks reached top 3 rows');
+            this.handleGameClear();
             return;
         }
         
@@ -503,7 +550,14 @@ class ReverseTetris {
     
     checkGameClear() {
         // リバーステトリスの勝利条件：上部3行のいずれかにブロックがある
-        return BoardUtils.hasBlocksInTopRows(this.board.grid, 3);
+        for (let y = 0; y < 3; y++) {
+            for (let x = 0; x < this.gridWidth; x++) {
+                if (this.board.grid[y][x] !== 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
     
     checkGameOver() {
@@ -630,14 +684,30 @@ class ReverseTetris {
         
         // ハイライトされたラインを描画（消去アニメーション用）
         if (this.highlightedLines && this.highlightedLines.length > 0) {
-            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
             for (const lineY of this.highlightedLines) {
+                // 白く光るエフェクト
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
                 this.ctx.fillRect(
                     0,
                     lineY * this.cellSize,
                     this.canvas.width,
                     this.cellSize
                 );
+                
+                // ラインを再描画（半透明）
+                for (let x = 0; x < this.gridWidth; x++) {
+                    const cell = this.board.grid[lineY][x];
+                    if (cell) {
+                        const color = TETROMINOS[cell].color;
+                        this.ctx.fillStyle = color + '80'; // 半透明
+                        this.ctx.fillRect(
+                            x * this.cellSize + 1,
+                            lineY * this.cellSize + 1,
+                            this.cellSize - 2,
+                            this.cellSize - 2
+                        );
+                    }
+                }
             }
         }
         

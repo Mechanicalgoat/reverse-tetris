@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>リバーステトリス デバッグテスト</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            background: #222;
+            color: #fff;
+        }
+        h1 {
+            color: #60a5fa;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #444;
+            border-radius: 5px;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 3px;
+        }
+        .success {
+            background: #10b981;
+            color: white;
+        }
+        .error {
+            background: #ef4444;
+            color: white;
+        }
+        .info {
+            background: #3b82f6;
+            color: white;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            background: #60a5fa;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #3b82f6;
+        }
+        #test-board {
+            border: 2px solid #60a5fa;
+            margin: 10px 0;
+        }
+        #log {
+            background: #111;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 2px 0;
+        }
+        .grid-display {
+            font-family: monospace;
+            white-space: pre;
+            background: #000;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 リバーステトリス デバッグテスト</h1>
+    
+    <div class="test-section">
+        <h2>1. ライン消去テスト</h2>
+        <button onclick="testLineClear()">ライン消去テスト実行</button>
+        <button onclick="testMultipleLines()">複数ライン消去テスト</button>
+        <div id="line-test-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. ゲームクリア判定テスト</h2>
+        <button onclick="testGameClear()">ゲームクリア判定テスト</button>
+        <button onclick="testTopRowsDetection()">上部3行検出テスト</button>
+        <div id="clear-test-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. 実際のゲームテスト</h2>
+        <canvas id="test-board" width="300" height="600"></canvas>
+        <div>
+            <button onclick="startTestGame()">テストゲーム開始</button>
+            <button onclick="sendTestPiece()">テストピース送信</button>
+            <button onclick="fillBottomRows()">下部を埋める</button>
+            <button onclick="fillTopRows()">上部3行に配置</button>
+            <button onclick="createCompleteLine()">完成ライン作成</button>
+        </div>
+        <div id="game-status"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. デバッグログ</h2>
+        <div id="log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>5. ボード状態表示</h2>
+        <div id="board-display" class="grid-display"></div>
+    </div>
+
+    <script>
+        // デバッグログ関数
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toTimeString().split(' ')[0];
+            entry.innerHTML = `<span style="color: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#60a5fa'}">[${time}]</span> ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        // テスト用ボード作成
+        function createTestBoard(width = 10, height = 20) {
+            return Array(height).fill().map(() => Array(width).fill(0));
+        }
+
+        // ボード表示
+        function displayBoard(board) {
+            const display = document.getElementById('board-display');
+            let text = '   0 1 2 3 4 5 6 7 8 9\n';
+            text += '  ┌─────────────────────┐\n';
+            for (let y = 0; y < board.length; y++) {
+                text += (y < 10 ? ' ' : '') + y + '│';
+                for (let x = 0; x < board[y].length; x++) {
+                    text += board[y][x] === 0 ? '  ' : '■ ';
+                }
+                text += '│' + (y < 3 ? ' ← Top' : '') + '\n';
+            }
+            text += '  └─────────────────────┘\n';
+            display.textContent = text;
+        }
+
+        // 1. ライン消去テスト
+        function testLineClear() {
+            log('=== ライン消去テスト開始 ===', 'info');
+            const board = createTestBoard();
+            
+            // 19行目（最下段）を完全に埋める
+            for (let x = 0; x < 10; x++) {
+                board[19][x] = 'T';
+            }
+            
+            displayBoard(board);
+            
+            // 完成ライン検出
+            const completedLines = [];
+            for (let y = 0; y < board.length; y++) {
+                if (board[y].every(cell => cell !== 0)) {
+                    completedLines.push(y);
+                }
+            }
+            
+            if (completedLines.length > 0) {
+                log(`完成ライン検出: 行 ${completedLines.join(', ')}`, 'success');
+                
+                // ライン削除
+                completedLines.sort((a, b) => b - a);
+                for (const lineIndex of completedLines) {
+                    board.splice(lineIndex, 1);
+                    board.unshift(Array(10).fill(0));
+                }
+                
+                log('ライン消去完了', 'success');
+                displayBoard(board);
+                
+                document.getElementById('line-test-result').innerHTML = 
+                    '<div class="status success">✅ ライン消去テスト成功</div>';
+            } else {
+                log('完成ラインが検出されませんでした', 'error');
+                document.getElementById('line-test-result').innerHTML = 
+                    '<div class="status error">❌ ライン消去テスト失敗</div>';
+            }
+        }
+
+        // 複数ライン消去テスト
+        function testMultipleLines() {
+            log('=== 複数ライン消去テスト開始 ===', 'info');
+            const board = createTestBoard();
+            
+            // 17, 18, 19行目を埋める
+            for (let y = 17; y < 20; y++) {
+                for (let x = 0; x < 10; x++) {
+                    board[y][x] = 'I';
+                }
+            }
+            
+            displayBoard(board);
+            
+            // 完成ライン検出
+            const completedLines = [];
+            for (let y = 0; y < board.length; y++) {
+                if (board[y].every(cell => cell !== 0)) {
+                    completedLines.push(y);
+                }
+            }
+            
+            log(`完成ライン検出: ${completedLines.length}行`, 'info');
+            
+            if (completedLines.length === 3) {
+                // ライン削除
+                completedLines.sort((a, b) => b - a);
+                for (const lineIndex of completedLines) {
+                    board.splice(lineIndex, 1);
+                    board.unshift(Array(10).fill(0));
+                }
+                
+                log('3行同時消去成功', 'success');
+                displayBoard(board);
+                
+                document.getElementById('line-test-result').innerHTML = 
+                    '<div class="status success">✅ 複数ライン消去テスト成功</div>';
+            } else {
+                log(`エラー: ${completedLines.length}行しか検出されませんでした`, 'error');
+                document.getElementById('line-test-result').innerHTML = 
+                    '<div class="status error">❌ 複数ライン消去テスト失敗</div>';
+            }
+        }
+
+        // 2. ゲームクリア判定テスト
+        function testGameClear() {
+            log('=== ゲームクリア判定テスト開始 ===', 'info');
+            const board = createTestBoard();
+            
+            // 上部3行目（index=2）に1つブロックを配置
+            board[2][5] = 'O';
+            
+            displayBoard(board);
+            
+            // 上部3行にブロックがあるかチェック
+            let hasBlocksInTopRows = false;
+            for (let y = 0; y < 3; y++) {
+                for (let x = 0; x < 10; x++) {
+                    if (board[y][x] !== 0) {
+                        hasBlocksInTopRows = true;
+                        log(`ブロック検出: 行${y}, 列${x}`, 'info');
+                        break;
+                    }
+                }
+                if (hasBlocksInTopRows) break;
+            }
+            
+            if (hasBlocksInTopRows) {
+                log('ゲームクリア条件達成！', 'success');
+                document.getElementById('clear-test-result').innerHTML = 
+                    '<div class="status success">✅ ゲームクリア判定テスト成功</div>';
+            } else {
+                log('ゲームクリア条件未達成', 'error');
+                document.getElementById('clear-test-result').innerHTML = 
+                    '<div class="status error">❌ ゲームクリア判定テスト失敗</div>';
+            }
+        }
+
+        // 上部3行検出テスト
+        function testTopRowsDetection() {
+            log('=== 上部3行検出テスト開始 ===', 'info');
+            const board = createTestBoard();
+            
+            // テストケース
+            const testCases = [
+                { row: 0, expected: true, desc: '1行目（最上段）' },
+                { row: 1, expected: true, desc: '2行目' },
+                { row: 2, expected: true, desc: '3行目' },
+                { row: 3, expected: false, desc: '4行目（範囲外）' },
+            ];
+            
+            let allPassed = true;
+            
+            for (const test of testCases) {
+                // ボードをクリア
+                for (let y = 0; y < board.length; y++) {
+                    for (let x = 0; x < board[y].length; x++) {
+                        board[y][x] = 0;
+                    }
+                }
+                
+                // 指定行にブロック配置
+                board[test.row][5] = 'T';
+                
+                // チェック
+                let detected = false;
+                for (let y = 0; y < 3; y++) {
+                    if (board[y].some(cell => cell !== 0)) {
+                        detected = true;
+                        break;
+                    }
+                }
+                
+                if (detected === test.expected) {
+                    log(`✅ ${test.desc}: 正常検出`, 'success');
+                } else {
+                    log(`❌ ${test.desc}: 検出失敗`, 'error');
+                    allPassed = false;
+                }
+            }
+            
+            if (allPassed) {
+                document.getElementById('clear-test-result').innerHTML = 
+                    '<div class="status success">✅ 上部3行検出テスト全て成功</div>';
+            } else {
+                document.getElementById('clear-test-result').innerHTML = 
+                    '<div class="status error">❌ 上部3行検出テストに失敗</div>';
+            }
+        }
+
+        // 初期化
+        log('デバッグテストシステム起動', 'info');
+        log('各テストボタンをクリックして動作確認してください', 'info');
+    </script>
+</body>
+</html>
