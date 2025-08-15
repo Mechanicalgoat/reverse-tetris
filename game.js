@@ -34,7 +34,7 @@ class ReverseTetris {
         this.selectedPiece = null;
         this.isPlaying = false;
         this.isPaused = false;
-        this.score = 0;
+        this.initializeScore('normal');
         this.piecesSent = 0;
         this.linesCleared = 0;
         
@@ -52,6 +52,9 @@ class ReverseTetris {
         
         // ライン消去アニメーション用
         this.highlightedLines = null;
+        
+        // 難易度別スコアシステム
+        this.currentDifficulty = 'normal';
         
         this.init();
     }
@@ -201,7 +204,7 @@ class ReverseTetris {
             };
             
             this.piecesSent++;
-            this.score += 10;
+            this.updateScore();
             
             // アニメーション開始
             this.animatePieceDrop();
@@ -278,28 +281,20 @@ class ReverseTetris {
         this.updateDisplay();
         this.draw();
         
-        // 少し間を置いてからライン消去を実行（ミノが積み上がったことを視覚的に確認できる時間）
-        setTimeout(() => {
-            this.clearLinesWithAnimation();
-        }, 300); // 300ms後にライン消去を実行
+        // 即座にライン消去を実行（積み上がった瞬間に消去）
+        this.clearLinesWithAnimation();
     }
     
     clearLinesWithAnimation() {
         const completedLines = this.findCompletedLines();
         
         if (completedLines.length > 0) {
-            // 消えるラインをハイライト表示
-            this.highlightCompletedLines(completedLines);
-            
-            // ハイライト表示した後、実際に消去
-            setTimeout(() => {
-                this.removeCompletedLines(completedLines);
-                this.checkGameStateAfterClear();
-            }, 200); // ハイライト表示時間
-        } else {
-            // 消えるラインがない場合はすぐに次の処理へ
-            this.checkGameStateAfterClear();
+            // 即座に消去（ハイライトなし）
+            this.removeCompletedLines(completedLines);
         }
+        
+        // すぐに次の処理へ
+        this.checkGameStateAfterClear();
     }
     
     findCompletedLines() {
@@ -333,10 +328,8 @@ class ReverseTetris {
         
         if (linesCleared > 0) {
             this.linesCleared += linesCleared;
-            this.score += linesCleared * 100;
-            
-            // AIを助けてしまったのでスコア減少
-            this.score -= linesCleared * 20;
+            // ラインクリアによるボーナス（少し）
+            this.score += linesCleared * 10;
         }
         
         // ハイライトをクリア
@@ -504,18 +497,15 @@ class ReverseTetris {
     }
     
     updateDisplay() {
-        document.getElementById('score').textContent = this.score;
+        // スコア表示（プラス/マイナス記号付き）
+        const scoreText = this.score >= 0 ? `+${this.score}` : `${this.score}`;
+        document.getElementById('score').textContent = scoreText;
+        
         document.getElementById('pieces-sent').textContent = this.piecesSent;
         document.getElementById('lines-cleared').textContent = this.linesCleared;
         
         // 最大高さを計算
-        let maxHeight = 0;
-        for (let y = 0; y < this.gridHeight; y++) {
-            if (this.board.grid[y].some(cell => cell !== 0)) {
-                maxHeight = this.gridHeight - y;
-                break;
-            }
-        }
+        const maxHeight = this.getMaxHeight();
         document.getElementById('max-height').textContent = maxHeight;
     }
     
@@ -544,6 +534,11 @@ class ReverseTetris {
         
         difficultySelect.addEventListener('change', (e) => {
             this.ai = new TetrisAI(e.target.value);
+            this.currentDifficulty = e.target.value;
+            if (!this.isPlaying) {
+                this.initializeScore(e.target.value);
+                this.updateDisplay();
+            }
         });
     }
     
@@ -571,7 +566,7 @@ class ReverseTetris {
     reset() {
         this.isPlaying = false;
         this.isPaused = false;
-        this.score = 0;
+        this.initializeScore(this.currentDifficulty);
         this.piecesSent = 0;
         this.linesCleared = 0;
         this.currentPiece = null;
@@ -600,6 +595,39 @@ class ReverseTetris {
         
         this.updateDisplay();
         this.draw();
+    }
+    
+    // 難易度別スコアシステムの初期化
+    initializeScore(difficulty) {
+        // 各難易度の理論最短ゲームオーバーピース数（推定）
+        const theoreticalMinPieces = {
+            'easy': 30,    // 弱いAIなので早く積める
+            'normal': 40,  // 普通のAI
+            'hard': 50     // 強いAIなので時間がかかる
+        };
+        
+        // 理論最短スコアを設定（1ピース10点として逆算）
+        this.score = theoreticalMinPieces[difficulty] * 10;
+        this.theoreticalMax = this.score;
+    }
+    
+    // スコア更新（ピース送信時）
+    updateScore() {
+        // 基本的に10点ずつ減少
+        this.score -= 10;
+        
+        // ボーナス要素（後で調整可能）
+        const heightBonus = Math.max(0, this.getMaxHeight() - 10) * 2; // 高さボーナス
+        this.score += heightBonus;
+    }
+    
+    getMaxHeight() {
+        for (let y = 0; y < this.gridHeight; y++) {
+            if (this.board.grid[y].some(cell => cell !== 0)) {
+                return this.gridHeight - y;
+            }
+        }
+        return 0;
     }
     
     // モバイル対応のゲームボードサイズ調整
