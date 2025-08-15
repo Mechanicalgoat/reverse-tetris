@@ -258,11 +258,12 @@ class ReverseTetris {
     gameOver() {
         this.isPlaying = false;
         const status = document.getElementById('game-status');
+        const t = window.currentTranslations || translations.en;
         status.innerHTML = `
-            <h2>🎉 ゲームクリア！</h2>
-            <p>AIを積ませることに成功しました！</p>
-            <p>最終スコア: ${this.score}</p>
-            <p>送ったミノ: ${this.piecesSent}個</p>
+            <h2>${t.gameOver}</h2>
+            <p>${t.gameOverMessage}</p>
+            <p>${t.finalScore} ${this.score}</p>
+            <p>${t.finalPieces} ${this.piecesSent}</p>
         `;
         status.classList.add('show');
     }
@@ -448,7 +449,8 @@ class ReverseTetris {
         if (!this.isPlaying) return;
         
         this.isPaused = !this.isPaused;
-        document.getElementById('pause-btn').textContent = this.isPaused ? '再開' : '一時停止';
+        const t = window.currentTranslations || translations.en;
+        document.getElementById('pause-btn').textContent = this.isPaused ? t.resumeGame : t.pauseGame;
     }
     
     reset() {
@@ -464,7 +466,8 @@ class ReverseTetris {
         
         document.getElementById('start-btn').disabled = false;
         document.getElementById('pause-btn').disabled = true;
-        document.getElementById('pause-btn').textContent = '一時停止';
+        const t = window.currentTranslations || translations.en;
+        document.getElementById('pause-btn').textContent = t.pauseGame;
         document.getElementById('game-status').classList.remove('show');
         
         document.querySelectorAll('.piece-btn').forEach(btn => {
@@ -480,5 +483,9 @@ class ReverseTetris {
 
 // ゲーム開始
 document.addEventListener('DOMContentLoaded', () => {
-    const game = new ReverseTetris();
+    // 言語管理システムを先に初期化
+    setTimeout(() => {
+        const game = new ReverseTetris();
+        window.gameInstance = game; // グローバルアクセス用
+    }, 100);
 });

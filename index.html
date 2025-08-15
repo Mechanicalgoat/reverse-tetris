@@ -1,34 +1,43 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reverse Tetris - AIを積ませろ！</title>
+    <title>Reverse Tetris - Make the AI Stack Up!</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>🎮 Reverse Tetris</h1>
-        <p class="subtitle">AIにミノを送って、できるだけ早く積ませよう！</p>
+        <h1 id="page-title">🎮 Reverse Tetris</h1>
+        <p class="subtitle" id="page-subtitle">Send pieces to the AI and make it stack up as quickly as possible!</p>
         
         <div class="game-container">
             <div class="left-panel">
                 <div class="score-board">
-                    <h2>スコア</h2>
+                    <h2 id="score-label">Score</h2>
                     <div class="score" id="score">0</div>
                     <div class="stats">
-                        <div>送ったミノ: <span id="pieces-sent">0</span></div>
-                        <div>消したライン: <span id="lines-cleared">0</span></div>
-                        <div>高さ: <span id="max-height">0</span></div>
+                        <div id="pieces-sent-label">Pieces Sent: <span id="pieces-sent">0</span></div>
+                        <div id="lines-cleared-label">Lines Cleared: <span id="lines-cleared">0</span></div>
+                        <div id="height-label">Height: <span id="max-height">0</span></div>
                     </div>
                 </div>
                 
                 <div class="difficulty">
-                    <h3>難易度</h3>
+                    <h3 id="difficulty-label">Difficulty</h3>
                     <select id="difficulty">
-                        <option value="easy">かんたん（弱いAI）</option>
-                        <option value="normal" selected>ふつう（普通のAI）</option>
-                        <option value="hard">むずかしい（強いAI）</option>
+                        <option value="easy">Easy (Weak AI)</option>
+                        <option value="normal" selected>Normal (Standard AI)</option>
+                        <option value="hard">Hard (Strong AI)</option>
+                    </select>
+                </div>
+                
+                <div class="language-selector">
+                    <h3 id="language-label">Language</h3>
+                    <select id="language-select">
+                        <option value="en" selected>English</option>
+                        <option value="ja">日本語</option>
+                        <option value="zh">中文</option>
                     </select>
                 </div>
             </div>
@@ -39,33 +48,34 @@
             </div>
             
             <div class="right-panel">
-                <h2>次のミノを選択</h2>
+                <h2 id="select-piece-label">Select Next Piece</h2>
                 <div class="piece-selector" id="piece-selector">
                     <!-- ミノ選択ボタンがここに生成される -->
                 </div>
                 <div class="next-queue">
-                    <h3>次に送るミノ</h3>
+                    <h3 id="next-piece-label">Next Piece to Send</h3>
                     <canvas id="next-piece" width="120" height="80"></canvas>
                 </div>
                 <div class="controls">
-                    <button id="start-btn" class="btn btn-primary">ゲーム開始</button>
-                    <button id="pause-btn" class="btn btn-secondary" disabled>一時停止</button>
-                    <button id="reset-btn" class="btn btn-danger">リセット</button>
+                    <button id="start-btn" class="btn btn-primary">Start Game</button>
+                    <button id="pause-btn" class="btn btn-secondary" disabled>Pause</button>
+                    <button id="reset-btn" class="btn btn-danger">Reset</button>
                 </div>
             </div>
         </div>
         
         <div class="instructions">
-            <h3>遊び方</h3>
+            <h3 id="instructions-title">How to Play</h3>
             <ul>
-                <li>右側のパネルからミノを選んでAIに送ります</li>
-                <li>AIは最適な位置にミノを配置しようとします</li>
-                <li>難しいミノを送って、AIを困らせましょう！</li>
-                <li>画面の上まで積み上がったらあなたの勝ち！</li>
+                <li id="instruction1">Select pieces from the right panel to send to the AI</li>
+                <li id="instruction2">The AI will try to place pieces in optimal positions</li>
+                <li id="instruction3">Send difficult pieces to trouble the AI!</li>
+                <li id="instruction4">Win when pieces stack up to the top of the screen!</li>
             </ul>
         </div>
     </div>
     
+    <script src="translations.js"></script>
     <script src="tetris-ai.js"></script>
     <script src="game.js"></script>
 </body>
