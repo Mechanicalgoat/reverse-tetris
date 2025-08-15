@@ -50,6 +50,9 @@ class ReverseTetris {
         this.canSendPiece = true;
         this.sendCooldown = 50; // 最小クールダウン（ミリ秒）
         
+        // ライン消去アニメーション用
+        this.highlightedLines = null;
+        
         this.init();
     }
     
@@ -271,9 +274,76 @@ class ReverseTetris {
         this.currentPiece = null;
         this.isProcessingPiece = false;
         
-        // ライン消去チェック
-        this.clearLines();
+        // まずミノが配置された状態を描画して表示
+        this.updateDisplay();
+        this.draw();
         
+        // 少し間を置いてからライン消去を実行（ミノが積み上がったことを視覚的に確認できる時間）
+        setTimeout(() => {
+            this.clearLinesWithAnimation();
+        }, 300); // 300ms後にライン消去を実行
+    }
+    
+    clearLinesWithAnimation() {
+        const completedLines = this.findCompletedLines();
+        
+        if (completedLines.length > 0) {
+            // 消えるラインをハイライト表示
+            this.highlightCompletedLines(completedLines);
+            
+            // ハイライト表示した後、実際に消去
+            setTimeout(() => {
+                this.removeCompletedLines(completedLines);
+                this.checkGameStateAfterClear();
+            }, 200); // ハイライト表示時間
+        } else {
+            // 消えるラインがない場合はすぐに次の処理へ
+            this.checkGameStateAfterClear();
+        }
+    }
+    
+    findCompletedLines() {
+        const completedLines = [];
+        for (let y = this.gridHeight - 1; y >= 0; y--) {
+            if (this.board.grid[y].every(cell => cell !== 0)) {
+                completedLines.push(y);
+            }
+        }
+        return completedLines;
+    }
+    
+    highlightCompletedLines(lines) {
+        // 消えるラインを一時的に白くハイライト
+        this.highlightedLines = lines;
+        this.draw(); // ハイライトされた状態で描画
+    }
+    
+    removeCompletedLines(lines) {
+        let linesCleared = 0;
+        
+        // 上から順に消去（インデックスのズレを防ぐため）
+        lines.sort((a, b) => a - b);
+        
+        for (let i = lines.length - 1; i >= 0; i--) {
+            const lineIndex = lines[i];
+            this.board.grid.splice(lineIndex, 1);
+            this.board.grid.unshift(Array(this.gridWidth).fill(0));
+            linesCleared++;
+        }
+        
+        if (linesCleared > 0) {
+            this.linesCleared += linesCleared;
+            this.score += linesCleared * 100;
+            
+            // AIを助けてしまったのでスコア減少
+            this.score -= linesCleared * 20;
+        }
+        
+        // ハイライトをクリア
+        this.highlightedLines = null;
+    }
+    
+    checkGameStateAfterClear() {
         // ゲームオーバーチェック
         if (this.checkGameOver()) {
             this.gameOver();
@@ -287,27 +357,7 @@ class ReverseTetris {
         setTimeout(() => this.processNextInQueue(), 100);
     }
     
-    clearLines() {
-        let linesCleared = 0;
-        
-        for (let y = this.gridHeight - 1; y >= 0; y--) {
-            if (this.board.grid[y].every(cell => cell !== 0)) {
-                // ライン消去
-                this.board.grid.splice(y, 1);
-                this.board.grid.unshift(Array(this.gridWidth).fill(0));
-                linesCleared++;
-                y++; // 同じ行を再チェック
-            }
-        }
-        
-        if (linesCleared > 0) {
-            this.linesCleared += linesCleared;
-            this.score += linesCleared * 100;
-            
-            // AIを助けてしまったのでスコア減少
-            this.score -= linesCleared * 20;
-        }
-    }
+    // 旧いclearLinesメソッドは削除し、新しいアニメーション付きメソッドを使用
     
     checkGameOver() {
         // 一番上の行にブロックがあるかチェック
@@ -353,7 +403,12 @@ class ReverseTetris {
             for (let x = 0; x < this.gridWidth; x++) {
                 const cell = this.board.grid[y][x];
                 if (cell) {
-                    const color = TETROMINOS[cell].color;
+                    let color = TETROMINOS[cell].color;
+                    
+                    // 消えるラインのハイライト処理
+                    if (this.highlightedLines && this.highlightedLines.includes(y)) {
+                        color = '#ffffff'; // 白でハイライト
+                    }
                     
                     // グラデーション効果
                     const gradient = this.ctx.createLinearGradient(
@@ -374,7 +429,8 @@ class ReverseTetris {
                     );
                     
                     // ハイライト効果
-                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                    const highlightAlpha = (this.highlightedLines && this.highlightedLines.includes(y)) ? 0.6 : 0.2;
+                    this.ctx.fillStyle = `rgba(255, 255, 255, ${highlightAlpha})`;
                     this.ctx.fillRect(
                         x * this.cellSize + 2,
                         y * this.cellSize + 2,
@@ -525,6 +581,7 @@ class ReverseTetris {
         this.pieceQueue = [];
         this.isProcessingPiece = false;
         this.canSendPiece = true;
+        this.highlightedLines = null;
         this.updateQueueDisplay();
         
         this.board.grid = Array(this.gridHeight).fill().map(() => Array(this.gridWidth).fill(0));
