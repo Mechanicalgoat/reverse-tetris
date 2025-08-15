@@ -1,5 +1,111 @@
 // メインゲームロジック
 
+// イベントシステム
+class GameEventEmitter {
+    constructor() {
+        this.events = {};
+    }
+    
+    on(event, callback) {
+        if (!this.events[event]) {
+            this.events[event] = [];
+        }
+        this.events[event].push(callback);
+    }
+    
+    emit(event, data) {
+        if (this.events[event]) {
+            this.events[event].forEach(callback => callback(data));
+        }
+    }
+    
+    off(event, callback) {
+        if (this.events[event]) {
+            this.events[event] = this.events[event].filter(cb => cb !== callback);
+        }
+    }
+}
+
+// ゲーム状態管理
+class GameStateManager {
+    constructor() {
+        this.state = {
+            isPlaying: false,
+            isPaused: false,
+            isGameClear: false,
+            isGameOver: false
+        };
+        this.eventEmitter = new GameEventEmitter();
+    }
+    
+    setState(newState) {
+        const oldState = { ...this.state };
+        this.state = { ...this.state, ...newState };
+        this.eventEmitter.emit('stateChange', { oldState, newState: this.state });
+    }
+    
+    getState() {
+        return { ...this.state };
+    }
+    
+    on(event, callback) {
+        this.eventEmitter.on(event, callback);
+    }
+    
+    off(event, callback) {
+        this.eventEmitter.off(event, callback);
+    }
+}
+
+// ボード操作ユーティリティ
+class BoardUtils {
+    static createEmptyBoard(width, height) {
+        return Array(height).fill().map(() => Array(width).fill(0));
+    }
+    
+    static findCompletedLines(board) {
+        const completedLines = [];
+        for (let y = 0; y < board.length; y++) {
+            if (board[y].every(cell => cell !== 0)) {
+                completedLines.push(y);
+            }
+        }
+        return completedLines;
+    }
+    
+    static removeLines(board, lines) {
+        if (lines.length === 0) return 0;
+        
+        // 下から上に向かって削除（インデックスのズレを防ぐため）
+        lines.sort((a, b) => b - a);
+        
+        for (const lineIndex of lines) {
+            board.splice(lineIndex, 1);
+            board.unshift(Array(board[0].length).fill(0));
+        }
+        
+        return lines.length;
+    }
+    
+    static getMaxHeight(board) {
+        for (let y = 0; y < board.length; y++) {
+            if (board[y].some(cell => cell !== 0)) {
+                return board.length - y;
+            }
+        }
+        return 0;
+    }
+    
+    static hasBlocksInTopRows(board, rowCount = 3) {
+        for (let y = 0; y < Math.min(rowCount, board.length); y++) {
+            if (board[y].some(cell => cell !== 0)) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
 const TETROMINOS = {
     I: { shape: [[1,1,1,1]], color: '#60a5fa' },
     O: { shape: [[1,1],[1,1]], color: '#fbbf24' },
@@ -27,13 +133,16 @@ class ReverseTetris {
         this.board = {
             width: this.gridWidth,
             height: this.gridHeight,
-            grid: Array(this.gridHeight).fill().map(() => Array(this.gridWidth).fill(0))
+            grid: BoardUtils.createEmptyBoard(this.gridWidth, this.gridHeight)
         };
         
         this.ai = new TetrisAI('normal');
         this.selectedPiece = null;
-        this.isPlaying = false;
-        this.isPaused = false;
+        
+        // ゲーム状態管理を改善
+        this.gameStateManager = new GameStateManager();
+        this.setupGameStateListeners();
+        
         this.initializeScore('normal');
         this.piecesSent = 0;
         this.linesCleared = 0;
@@ -60,6 +169,42 @@ class ReverseTetris {
         this.setupPieceSelector();
         this.setupControls();
         this.updateDisplay();
+    }
+    
+    setupGameStateListeners() {
+        this.gameStateManager.on('stateChange', ({ oldState, newState }) => {
+            console.log('Game state changed:', oldState, '->', newState);
+            this.onGameStateChange(oldState, newState);
+        });
+    }
+    
+    onGameStateChange(oldState, newState) {
+        // ゲーム状態変更時の処理
+        if (newState.isGameClear && !oldState.isGameClear) {
+            console.log('Game cleared!');
+        }
+        
+        if (newState.isGameOver && !oldState.isGameOver) {
+            console.log('Game over!');
+        }
+        
+        // UI更新
+        this.updateUIFromState(newState);
+    }
+    
+    updateUIFromState(state) {
+        const startBtn = document.getElementById('start-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const t = window.currentTranslations || translations.en;
+        
+        startBtn.disabled = state.isPlaying;
+        pauseBtn.disabled = !state.isPlaying;
+        
+        if (state.isPaused) {
+            pauseBtn.textContent = t.resumeGame || 'Resume';
+        } else {
+            pauseBtn.textContent = t.pauseGame || 'Pause';
+        }
     }
     
     setupPieceSelector() {
@@ -118,7 +263,8 @@ class ReverseTetris {
     }
     
     selectPiece(type) {
-        if (!this.isPlaying) return;
+        const state = this.gameStateManager.getState();
+        if (!state.isPlaying || state.isPaused) return;
         
         // 連続送信対応：キューに追加
         if (this.isProcessingPiece) {
@@ -171,7 +317,8 @@ class ReverseTetris {
     }
     
     processNextInQueue() {
-        if (this.pieceQueue.length > 0 && !this.isProcessingPiece && this.canSendPiece) {
+        const state = this.gameStateManager.getState();
+        if (this.pieceQueue.length > 0 && !this.isProcessingPiece && this.canSendPiece && state.isPlaying) {
             const nextPiece = this.pieceQueue.shift();
             this.updateQueueDisplay();
             this.processPieceSelection(nextPiece);
@@ -179,7 +326,8 @@ class ReverseTetris {
     }
     
     sendPiece() {
-        if (!this.selectedPiece || !this.isPlaying || this.currentPiece) return;
+        const state = this.gameStateManager.getState();
+        if (!this.selectedPiece || !state.isPlaying || this.currentPiece) return;
         
         const tetromino = TETROMINOS[this.selectedPiece];
         const piece = tetromino.shape.map(row => row.map(cell => cell ? this.selectedPiece : 0));
@@ -278,7 +426,7 @@ class ReverseTetris {
         this.updateDisplay();
         this.draw();
         
-        // 即座にライン消去を実行（積み上がった瞬間に消去）
+        // ライン消去を実行
         this.clearLinesWithAnimation();
     }
     
@@ -286,21 +434,24 @@ class ReverseTetris {
         const completedLines = this.findCompletedLines();
         
         if (completedLines.length > 0) {
-            // 即座に消去（ハイライトなし）
-            this.removeCompletedLines(completedLines);
+            console.log('Complete lines found:', completedLines);
+            // ハイライト表示
+            this.highlightCompletedLines(completedLines);
+            
+            // 少し遅延してから削除
+            setTimeout(() => {
+                this.removeCompletedLines(completedLines);
+                this.checkGameStateAfterClear();
+            }, 200);
+        } else {
+            // ライン消去がない場合はすぐに次の処理へ
+            this.checkGameStateAfterClear();
         }
-        
-        // すぐに次の処理へ
-        this.checkGameStateAfterClear();
     }
     
     findCompletedLines() {
-        const completedLines = [];
-        for (let y = this.gridHeight - 1; y >= 0; y--) {
-            if (this.board.grid[y].every(cell => cell !== 0)) {
-                completedLines.push(y);
-            }
-        }
+        const completedLines = BoardUtils.findCompletedLines(this.board.grid);
+        console.log('Found completed lines:', completedLines);
         return completedLines;
     }
     
@@ -308,35 +459,36 @@ class ReverseTetris {
         // 消えるラインを一時的に白くハイライト
         this.highlightedLines = lines;
         this.draw(); // ハイライトされた状態で描画
+        console.log('Highlighting lines:', lines);
     }
     
     removeCompletedLines(lines) {
-        let linesCleared = 0;
+        if (lines.length === 0) return;
         
-        // 上から順に消去（インデックスのズレを防ぐため）
-        lines.sort((a, b) => a - b);
+        console.log('Removing lines:', lines);
         
-        for (let i = lines.length - 1; i >= 0; i--) {
-            const lineIndex = lines[i];
-            this.board.grid.splice(lineIndex, 1);
-            this.board.grid.unshift(Array(this.gridWidth).fill(0));
-            linesCleared++;
-        }
+        const removedCount = BoardUtils.removeLines(this.board.grid, lines);
         
-        if (linesCleared > 0) {
-            this.linesCleared += linesCleared;
-            // ラインクリアによるボーナス（少し）
-            this.score += linesCleared * 10;
-        }
+        this.linesCleared += removedCount;
+        // ラインクリアによるボーナス
+        this.score += removedCount * 10;
+        
+        console.log('Lines cleared. Total lines:', this.linesCleared);
         
         // ハイライトをクリア
         this.highlightedLines = null;
     }
     
     checkGameStateAfterClear() {
-        // ゲームオーバーチェック
+        // ゲームクリア判定（リバーステトリスの勝利条件）
+        if (this.checkGameClear()) {
+            this.handleGameClear();
+            return;
+        }
+        
+        // ゲームオーバー判定（通常は発生しないが安全のため）
         if (this.checkGameOver()) {
-            this.gameOver();
+            this.handleGameOver();
             return;
         }
         
@@ -349,21 +501,62 @@ class ReverseTetris {
     
     // 旧いclearLinesメソッドは削除し、新しいアニメーション付きメソッドを使用
     
-    checkGameOver() {
-        // 一番上の行にブロックがあるかチェック
-        return this.board.grid[0].some(cell => cell !== 0);
+    checkGameClear() {
+        // リバーステトリスの勝利条件：上部3行のいずれかにブロックがある
+        return BoardUtils.hasBlocksInTopRows(this.board.grid, 3);
     }
     
-    gameOver() {
-        this.isPlaying = false;
+    checkGameOver() {
+        // 通常のテトリスのゲームオーバー条件（このゲームでは使用しない）
+        return false;
+    }
+    
+    handleGameClear() {
+        this.gameStateManager.setState({
+            isPlaying: false,
+            isGameClear: true
+        });
+        
+        // ボーナススコア計算
+        const difficultyBonus = {
+            'easy': 50,
+            'normal': 100,
+            'hard': 200
+        };
+        this.score += difficultyBonus[this.currentDifficulty] || 100;
+        
+        this.showGameEndMessage(true);
+    }
+    
+    handleGameOver() {
+        this.gameStateManager.setState({
+            isPlaying: false,
+            isGameOver: true
+        });
+        this.showGameEndMessage(false);
+    }
+    
+    showGameEndMessage(isGameClear) {
         const status = document.getElementById('game-status');
         const t = window.currentTranslations || translations.en;
-        status.innerHTML = `
-            <h2>${t.gameOver}</h2>
-            <p>${t.gameOverMessage}</p>
-            <p>${t.finalScore} ${this.score}</p>
-            <p>${t.finalPieces} ${this.piecesSent}</p>
-        `;
+        
+        if (isGameClear) {
+            status.innerHTML = `
+                <h2>${t.gameOver}</h2>
+                <p>${t.gameOverMessage}</p>
+                <p>${t.finalScore} ${this.score}</p>
+                <p>${t.finalPieces} ${this.piecesSent}</p>
+                <p style="margin-top: 10px; color: #60a5fa;">Difficulty: ${this.currentDifficulty.toUpperCase()}</p>
+            `;
+        } else {
+            status.innerHTML = `
+                <h2>Game Over</h2>
+                <p>Something went wrong...</p>
+                <p>${t.finalScore} ${this.score}</p>
+                <p>${t.finalPieces} ${this.piecesSent}</p>
+            `;
+        }
+        
         status.classList.add('show');
     }
     
@@ -432,6 +625,19 @@ class ReverseTetris {
                         this.cellSize - 2
                     );
                 }
+            }
+        }
+        
+        // ハイライトされたラインを描画（消去アニメーション用）
+        if (this.highlightedLines && this.highlightedLines.length > 0) {
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            for (const lineY of this.highlightedLines) {
+                this.ctx.fillRect(
+                    0,
+                    lineY * this.cellSize,
+                    this.canvas.width,
+                    this.cellSize
+                );
             }
         }
         
@@ -526,7 +732,8 @@ class ReverseTetris {
         difficultySelect.addEventListener('change', (e) => {
             this.ai = new TetrisAI(e.target.value);
             this.currentDifficulty = e.target.value;
-            if (!this.isPlaying) {
+            const state = this.gameStateManager.getState();
+            if (!state.isPlaying) {
                 this.initializeScore(e.target.value);
                 this.updateDisplay();
             }
@@ -534,29 +741,38 @@ class ReverseTetris {
     }
     
     start() {
-        if (this.isPlaying) return;
+        const state = this.gameStateManager.getState();
+        if (state.isPlaying) return;
         
-        this.isPlaying = true;
-        this.isPaused = false;
+        this.gameStateManager.setState({
+            isPlaying: true,
+            isPaused: false,
+            isGameClear: false,
+            isGameOver: false
+        });
         
-        document.getElementById('start-btn').disabled = true;
-        document.getElementById('pause-btn').disabled = false;
         document.getElementById('game-status').classList.remove('show');
         
         this.draw();
     }
     
     togglePause() {
-        if (!this.isPlaying) return;
+        const state = this.gameStateManager.getState();
+        if (!state.isPlaying) return;
         
-        this.isPaused = !this.isPaused;
-        const t = window.currentTranslations || translations.en;
-        document.getElementById('pause-btn').textContent = this.isPaused ? t.resumeGame : t.pauseGame;
+        this.gameStateManager.setState({
+            isPaused: !state.isPaused
+        });
     }
     
     reset() {
-        this.isPlaying = false;
-        this.isPaused = false;
+        this.gameStateManager.setState({
+            isPlaying: false,
+            isPaused: false,
+            isGameClear: false,
+            isGameOver: false
+        });
+        
         this.initializeScore(this.currentDifficulty);
         this.piecesSent = 0;
         this.linesCleared = 0;
@@ -569,12 +785,9 @@ class ReverseTetris {
         this.canSendPiece = true;
         this.updateQueueDisplay();
         
-        this.board.grid = Array(this.gridHeight).fill().map(() => Array(this.gridWidth).fill(0));
+        // ボードをクリア
+        this.board.grid = BoardUtils.createEmptyBoard(this.gridWidth, this.gridHeight);
         
-        document.getElementById('start-btn').disabled = false;
-        document.getElementById('pause-btn').disabled = true;
-        const t = window.currentTranslations || translations.en;
-        document.getElementById('pause-btn').textContent = t.pauseGame;
         document.getElementById('game-status').classList.remove('show');
         
         document.querySelectorAll('.piece-btn').forEach(btn => {
@@ -612,12 +825,7 @@ class ReverseTetris {
     }
     
     getMaxHeight() {
-        for (let y = 0; y < this.gridHeight; y++) {
-            if (this.board.grid[y].some(cell => cell !== 0)) {
-                return this.gridHeight - y;
-            }
-        }
-        return 0;
+        return BoardUtils.getMaxHeight(this.board.grid);
     }
     
     // モバイル対応のゲームボードサイズ調整
