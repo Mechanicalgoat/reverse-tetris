@@ -48,7 +48,7 @@ const translations = {
     
     ja: {
         // Page Title and Headers
-        title: "🎮 リバーステトリス",
+        title: "🎮 Reverse Tetris",
         subtitle: "AIにミノを送って、できるだけ早く積み上げさせよう！",
         
         // Game Interface
@@ -93,7 +93,7 @@ const translations = {
     
     zh: {
         // Page Title and Headers
-        title: "🎮 反向俄罗斯方块",
+        title: "🎮 Reverse Tetris",
         subtitle: "向AI发送方块，让它尽快堆叠起来！",
         
         // Game Interface

@@ -50,9 +50,6 @@ class ReverseTetris {
         this.canSendPiece = true;
         this.sendCooldown = 50; // 最小クールダウン（ミリ秒）
         
-        // ライン消去アニメーション用
-        this.highlightedLines = null;
-        
         // 難易度別スコアシステム
         this.currentDifficulty = 'normal';
         
@@ -396,12 +393,7 @@ class ReverseTetris {
             for (let x = 0; x < this.gridWidth; x++) {
                 const cell = this.board.grid[y][x];
                 if (cell) {
-                    let color = TETROMINOS[cell].color;
-                    
-                    // 消えるラインのハイライト処理
-                    if (this.highlightedLines && this.highlightedLines.includes(y)) {
-                        color = '#ffffff'; // 白でハイライト
-                    }
+                    const color = TETROMINOS[cell].color;
                     
                     // グラデーション効果
                     const gradient = this.ctx.createLinearGradient(
@@ -422,8 +414,7 @@ class ReverseTetris {
                     );
                     
                     // ハイライト効果
-                    const highlightAlpha = (this.highlightedLines && this.highlightedLines.includes(y)) ? 0.6 : 0.2;
-                    this.ctx.fillStyle = `rgba(255, 255, 255, ${highlightAlpha})`;
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
                     this.ctx.fillRect(
                         x * this.cellSize + 2,
                         y * this.cellSize + 2,
@@ -576,7 +567,6 @@ class ReverseTetris {
         this.pieceQueue = [];
         this.isProcessingPiece = false;
         this.canSendPiece = true;
-        this.highlightedLines = null;
         this.updateQueueDisplay();
         
         this.board.grid = Array(this.gridHeight).fill().map(() => Array(this.gridWidth).fill(0));
