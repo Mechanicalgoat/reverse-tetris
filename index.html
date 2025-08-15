@@ -12,6 +12,8 @@
         <p class="subtitle" id="page-subtitle">Send pieces to the AI and make it stack up as quickly as possible!</p>
         
         <div class="game-container">
+            <div class="piece-queue-indicator" id="piece-queue-indicator"></div>
+            
             <div class="left-panel">
                 <div class="score-board">
                     <h2 id="score-label">Score</h2>
@@ -23,22 +25,24 @@
                     </div>
                 </div>
                 
-                <div class="difficulty">
-                    <h3 id="difficulty-label">Difficulty</h3>
-                    <select id="difficulty">
-                        <option value="easy">Easy (Weak AI)</option>
-                        <option value="normal" selected>Normal (Standard AI)</option>
-                        <option value="hard">Hard (Strong AI)</option>
-                    </select>
-                </div>
-                
-                <div class="language-selector">
-                    <h3 id="language-label">Language</h3>
-                    <select id="language-select">
-                        <option value="en" selected>English</option>
-                        <option value="ja">日本語</option>
-                        <option value="zh">中文</option>
-                    </select>
+                <div class="mobile-settings">
+                    <div class="difficulty">
+                        <h3 id="difficulty-label">Difficulty</h3>
+                        <select id="difficulty">
+                            <option value="easy">Easy (Weak AI)</option>
+                            <option value="normal" selected>Normal (Standard AI)</option>
+                            <option value="hard">Hard (Strong AI)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="language-selector">
+                        <h3 id="language-label">Language</h3>
+                        <select id="language-select">
+                            <option value="en" selected>English</option>
+                            <option value="ja">日本語</option>
+                            <option value="zh">中文</option>
+                        </select>
+                    </div>
                 </div>
             </div>
             

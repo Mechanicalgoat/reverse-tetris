@@ -21,6 +21,9 @@ class ReverseTetris {
         this.gridHeight = 20;
         this.cellSize = 30;
         
+        // モバイル対応：画面サイズに応じてゲームボードサイズを調整
+        this.adjustGameBoardSize();
+        
         this.board = {
             width: this.gridWidth,
             height: this.gridHeight,
@@ -40,6 +43,12 @@ class ReverseTetris {
         this.lastDropTime = 0;
         this.currentPiece = null;
         this.currentPosition = null;
+        
+        // 連続送信用の改善
+        this.pieceQueue = [];
+        this.isProcessingPiece = false;
+        this.canSendPiece = true;
+        this.sendCooldown = 50; // 最小クールダウン（ミリ秒）
         
         this.init();
     }
@@ -106,7 +115,23 @@ class ReverseTetris {
     }
     
     selectPiece(type) {
-        if (!this.isPlaying || this.currentPiece) return;
+        if (!this.isPlaying) return;
+        
+        // 連続送信対応：キューに追加
+        if (this.isProcessingPiece) {
+            this.pieceQueue.push(type);
+            this.updateQueueDisplay();
+            return;
+        }
+        
+        this.processPieceSelection(type);
+    }
+    
+    processPieceSelection(type) {
+        if (!this.canSendPiece) return;
+        
+        this.isProcessingPiece = true;
+        this.canSendPiece = false;
         
         // 前の選択をクリア
         document.querySelectorAll('.piece-btn').forEach(btn => {
@@ -115,7 +140,7 @@ class ReverseTetris {
         
         // 新しい選択
         const btn = document.querySelector(`[data-type="${type}"]`);
-        btn.classList.add('selected');
+        if (btn) btn.classList.add('selected');
         
         this.selectedPiece = type;
         
@@ -123,8 +148,31 @@ class ReverseTetris {
         const tetromino = TETROMINOS[type];
         this.drawMiniPiece(this.nextCtx, tetromino.shape, tetromino.color, 120, 80);
         
-        // 自動的にピースを送る（高速化）
-        setTimeout(() => this.sendPiece(), 200);
+        // 即座にピースを送る
+        setTimeout(() => this.sendPiece(), 50);
+    }
+    
+    updateQueueDisplay() {
+        // キューの可視化（オプション）
+        const queueElement = document.getElementById('piece-queue-indicator');
+        if (queueElement) {
+            if (this.pieceQueue.length > 0) {
+                const t = window.currentTranslations || translations.en;
+                queueElement.textContent = `Queue: ${this.pieceQueue.length}`;
+                queueElement.classList.add('show');
+            } else {
+                queueElement.textContent = '';
+                queueElement.classList.remove('show');
+            }
+        }
+    }
+    
+    processNextInQueue() {
+        if (this.pieceQueue.length > 0 && !this.isProcessingPiece && this.canSendPiece) {
+            const nextPiece = this.pieceQueue.shift();
+            this.updateQueueDisplay();
+            this.processPieceSelection(nextPiece);
+        }
     }
     
     sendPiece() {
@@ -162,6 +210,12 @@ class ReverseTetris {
             btn.classList.remove('selected');
         });
         this.nextCtx.clearRect(0, 0, 120, 80);
+        
+        // クールダウン設定
+        setTimeout(() => {
+            this.canSendPiece = true;
+            this.processNextInQueue();
+        }, this.sendCooldown);
     }
     
     animatePieceDrop() {
@@ -215,6 +269,7 @@ class ReverseTetris {
         }
         
         this.currentPiece = null;
+        this.isProcessingPiece = false;
         
         // ライン消去チェック
         this.clearLines();
@@ -222,10 +277,14 @@ class ReverseTetris {
         // ゲームオーバーチェック
         if (this.checkGameOver()) {
             this.gameOver();
+            return;
         }
         
         this.updateDisplay();
         this.draw();
+        
+        // 次のピースをキューから処理
+        setTimeout(() => this.processNextInQueue(), 100);
     }
     
     clearLines() {
@@ -462,6 +521,12 @@ class ReverseTetris {
         this.currentPiece = null;
         this.selectedPiece = null;
         
+        // キューもリセット
+        this.pieceQueue = [];
+        this.isProcessingPiece = false;
+        this.canSendPiece = true;
+        this.updateQueueDisplay();
+        
         this.board.grid = Array(this.gridHeight).fill().map(() => Array(this.gridWidth).fill(0));
         
         document.getElementById('start-btn').disabled = false;
@@ -479,6 +544,26 @@ class ReverseTetris {
         this.updateDisplay();
         this.draw();
     }
+    
+    // モバイル対応のゲームボードサイズ調整
+    adjustGameBoardSize() {
+        const isMobile = window.innerWidth <= 768;
+        const isSmallMobile = window.innerWidth <= 480;
+        
+        if (isSmallMobile) {
+            this.canvas.width = 250;
+            this.canvas.height = 500;
+            this.cellSize = 25;
+        } else if (isMobile) {
+            this.canvas.width = 280;
+            this.canvas.height = 560;
+            this.cellSize = 28;
+        } else {
+            this.canvas.width = 300;
+            this.canvas.height = 600;
+            this.cellSize = 30;
+        }
+    }
 }
 
 // ゲーム開始
@@ -487,5 +572,19 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         const game = new ReverseTetris();
         window.gameInstance = game; // グローバルアクセス用
+        
+        // 画面サイズ変更時の対応
+        window.addEventListener('resize', () => {
+            game.adjustGameBoardSize();
+            game.draw();
+        });
+        
+        // 画面の向き変更時の対応
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                game.adjustGameBoardSize();
+                game.draw();
+            }, 100);
+        });
     }, 100);
 });
